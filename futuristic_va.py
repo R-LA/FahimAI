@@ -1,23 +1,18 @@
 import streamlit as st
-import time, os, base64, random
+import time, random, os, base64
 from gtts import gTTS
-from openai import OpenAI
-from dotenv import load_dotenv
 
 # ----------------------------
-# Load API key
-# ----------------------------
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# ----------------------------
-# Page setup
+# PAGE CONFIGURATION
 # ----------------------------
 st.set_page_config(page_title="FahimAI - Age-Aware Virtual Assistant", layout="centered")
 
-# Splash / intro
+# ----------------------------
+# SPLASH / INTRO PAGE
+# ----------------------------
 if "launched" not in st.session_state:
     st.session_state["launched"] = False
+
 if not st.session_state["launched"]:
     st.markdown("""
         <div style='text-align:center; padding:80px;'>
@@ -26,6 +21,7 @@ if not st.session_state["launched"]:
             <p>Developed by <b>Renella Andrade</b> | MSc Data Science & AI (UCAM, 2025)</p>
         </div>
     """, unsafe_allow_html=True)
+
     if st.button("🚀 Launch FahimAI"):
         with st.spinner("Starting assistant..."):
             time.sleep(1.5)
@@ -34,7 +30,7 @@ if not st.session_state["launched"]:
     st.stop()
 
 # ----------------------------
-# Sidebar inputs
+# SIDEBAR INPUT
 # ----------------------------
 st.sidebar.header("👤 User Profile")
 age_group = st.sidebar.selectbox("Select your age group:",
@@ -44,7 +40,7 @@ purpose = st.sidebar.selectbox("What would you like help with?",
 enable_voice = st.sidebar.checkbox("🔊 Enable Voice Responses", value=False)
 
 # ----------------------------
-# Theme by age
+# STYLE BY AGE
 # ----------------------------
 def style_by_age(a):
     if a in ["18–24","25–34"]:
@@ -67,41 +63,67 @@ h1,h2,h3,h4,h5,h6{{color:{theme['accent']};text-shadow:1px 1px 2px #999;}}
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# GPT response via Responses API
+# SMART LOCAL RESPONSE ENGINE
 # ----------------------------
-def fahimai_gpt_response(prompt, tone):
-    try:
-        tone_note = {
-            "friendly": "Use warm, positive, emoji-friendly phrasing.",
-            "balanced": "Use clear, professional but conversational language.",
-            "professional": "Use formal, concise business language."
-        }[tone]
+def fahimai_response(user_input, tone):
+    text = user_input.lower()
+    if any(w in text for w in ["motivate","encourage","tired","lazy","demotivated","burnout"]):
+        intent = "motivation"
+    elif any(w in text for w in ["ai","assistant","automation","artificial intelligence"]):
+        intent = "ai"
+    elif any(w in text for w in ["productivity","focus","task","work","time management","deadline"]):
+        intent = "productivity"
+    elif any(w in text for w in ["stress","mental","anxious","relax"]):
+        intent = "wellbeing"
+    else:
+        intent = "general"
 
-        full_input = f"You are FahimAI, an age-aware UAE assistant. {tone_note}\nUser: {prompt}"
-
-        r = client.responses.create(
-            model="gpt-4o-mini",     # or gpt-3.5-turbo if your key supports
-            input=full_input,
-            temperature=0.8,
-            max_output_tokens=250
-        )
-        return r.output_text.strip()
-    except Exception as e:
-        return f"⚠️ GPT error: {e}"
+    responses = {
+        "motivation": {
+            "friendly": ["🌟 You’re doing amazing — every small step counts!","✨ Keep going, your consistency matters!"],
+            "balanced": ["Progress builds gradually — focus on steady effort.","Stay consistent and believe in your process."],
+            "professional": ["Resilience defines leadership. Stay composed and move forward.","Challenges refine capability; maintain focus."]
+        },
+        "ai": {
+            "friendly": ["🤖 AI can help you simplify tasks and boost creativity!","AI is your digital teammate — explore, learn, grow!"],
+            "balanced": ["AI improves productivity and decision-making when used responsibly.","Adopting AI gradually ensures confident integration."],
+            "professional": ["AI supports strategic efficiency and informed decision-making.","Responsible AI use enhances performance across industries."]
+        },
+        "productivity": {
+            "friendly": ["💪 Try short focus sprints with breaks — it works wonders!","🚀 Start with one major goal and celebrate small wins."],
+            "balanced": ["Plan your day with priorities — clarity boosts productivity.","Avoid multitasking; single-tasking enhances quality."],
+            "professional": ["Structured scheduling and delegation improve outcomes.","Strategic focus ensures timely delivery and accountability."]
+        },
+        "wellbeing": {
+            "friendly": ["🌸 Take a pause — your wellbeing fuels success!","🧘 Deep breath. Rest helps you reset and recharge."],
+            "balanced": ["Balance and composure sustain performance.","A short pause can restore focus and mental clarity."],
+            "professional": ["Wellbeing underpins sustainable performance.","Balanced routines support sound decision-making."]
+        },
+        "general": {
+            "friendly": ["Hey there 👋 How can I help you today?","Tell me more — happy to assist!"],
+            "balanced": ["I’m here to support with productivity or AI insights.","Please share your question for tailored advice."],
+            "professional": ["Good day. How may I assist with your inquiry?","Please provide context so I can offer structured guidance."]
+        }
+    }
+    return random.choice(responses[intent][tone])
 
 # ----------------------------
-# Chat UI
+# CHAT INTERFACE
 # ----------------------------
 st.subheader(f"{theme['icon']} Chat with FahimAI")
-if "history" not in st.session_state: st.session_state["history"] = []
+
+if "history" not in st.session_state:
+    st.session_state["history"] = []
 
 user_input = st.text_input("Type your question or task:")
+
 if st.button("Ask FahimAI"):
     if user_input.strip():
         with st.spinner("FahimAI is thinking... 🤔"):
-            time.sleep(1.2)
-        reply = fahimai_gpt_response(user_input, theme["tone"])
-        st.session_state["history"].extend([("You", user_input), ("FahimAI", reply)])
+            time.sleep(1)
+        reply = fahimai_response(user_input, theme["tone"])
+        st.session_state["history"].append(("You", user_input))
+        st.session_state["history"].append(("FahimAI", reply))
 
         if enable_voice:
             tts = gTTS(reply)
@@ -111,7 +133,7 @@ if st.button("Ask FahimAI"):
             st.markdown(f"<audio autoplay controls src='data:audio/mp3;base64,{audio}'></audio>", unsafe_allow_html=True)
             os.remove("voice.mp3")
     else:
-        st.warning("Please enter a message.")
+        st.warning("Please enter a question.")
 
 for sender,msg in st.session_state["history"]:
     color = "#fff" if sender=="You" else "#FDFEFE"
@@ -119,7 +141,7 @@ for sender,msg in st.session_state["history"]:
     st.markdown(f"<div style='padding:10px;background:{color};border-left:{border};border-radius:8px;margin:5px;'><b>{theme['icon'] if sender!='You' else '👤'} {sender}:</b> {msg}</div>", unsafe_allow_html=True)
 
 # ----------------------------
-# Feedback
+# FEEDBACK
 # ----------------------------
 st.markdown("---")
 st.markdown("#### Was this response helpful?")
@@ -127,6 +149,7 @@ c1,c2 = st.columns(2)
 with c1:
     if st.button("👍 Yes"): st.info("Thank you! FahimAI appreciates your feedback.")
 with c2:
-    if st.button("👎 No"): st.error("Got it. FahimAI will work on being more helpful!")
-st.caption("FahimAI adapts tone and interface by age group — demonstrating inclusive AI design.")
+    if st.button("👎 No"): st.error("Got it. FahimAI will try to improve!")
+st.caption("FahimAI adapts tone and visuals by age group — demonstrating inclusive, accessible AI design.")
+
 
