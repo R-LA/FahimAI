@@ -30,7 +30,7 @@ if not st.session_state["launched"]:
         with st.spinner("Starting assistant..."):
             time.sleep(1.5)
         st.session_state["launched"] = True
-        st.experimental_rerun()
+        st.rerun()
     st.stop()
 
 # ----------------------------
@@ -129,3 +129,4 @@ with c1:
 with c2:
     if st.button("👎 No"): st.error("Got it. FahimAI will work on being more helpful!")
 st.caption("FahimAI adapts tone and interface by age group — demonstrating inclusive AI design.")
+
